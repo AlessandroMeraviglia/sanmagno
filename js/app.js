@@ -10,6 +10,8 @@ import {
     orderBy,
     getDocs,
     addDoc,
+    updateDoc,
+    doc,
     Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
 
@@ -25,6 +27,7 @@ const cdHours = document.getElementById('cdHours');
 const cdMins = document.getElementById('cdMins');
 const cdSecs = document.getElementById('cdSecs');
 const btnPrenota = document.getElementById('btnPrenota');
+const btnModifica = document.getElementById('btnModifica');
 const detailsGrid = document.getElementById('detailsGrid');
 const eventDetailsSection = document.getElementById('eventDetails');
 const bookingSection = document.getElementById('prenota');
@@ -42,6 +45,21 @@ const pastEventsSection = document.getElementById('pastEventsSection');
 const noPastEvents = document.getElementById('noPastEvents');
 const footerYear = document.getElementById('footerYear');
 const toastEl = document.getElementById('toast');
+
+// Locandina
+const locandinaSection = document.getElementById('locandinaSection');
+const locandinaImg = document.getElementById('locandinaImg');
+
+// Modify booking
+const modifyLookupWrapper = document.getElementById('modifyLookupWrapper');
+const modifyFormWrapper = document.getElementById('modifyFormWrapper');
+const lookupForm = document.getElementById('lookupForm');
+const lookupResults = document.getElementById('lookupResults');
+const lookupResultsList = document.getElementById('lookupResultsList');
+const lookupEmpty = document.getElementById('lookupEmpty');
+const modifyForm = document.getElementById('modifyForm');
+const btnCancelModify = document.getElementById('btnCancelModify');
+const modifyFormSubtitle = document.getElementById('modifyFormSubtitle');
 
 // --- State ---
 let currentEvent = null;
@@ -72,44 +90,37 @@ function showToast(message, type = 'success') {
     setTimeout(() => { toastEl.classList.remove('show'); }, 4000);
 }
 
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // --- Load Events ---
 async function loadEvents() {
     try {
-        const now = Timestamp.now();
         const eventsRef = collection(db, 'events');
-
-        // Get all events ordered by date
         const q = query(eventsRef, orderBy('date', 'desc'));
         const snapshot = await getDocs(q);
 
         const events = [];
-        snapshot.forEach(doc => {
-            events.push({ id: doc.id, ...doc.data() });
+        snapshot.forEach(d => {
+            events.push({ id: d.id, ...d.data() });
         });
 
-        // Find the current/upcoming event (future date, active)
         const nowDate = new Date();
-        const upcomingEvents = events.filter(e => {
-            const eventDate = e.date.toDate();
-            return eventDate >= nowDate;
-        });
+        const upcomingEvents = events.filter(e => e.date.toDate() >= nowDate);
+        const pastEvents = events.filter(e => e.date.toDate() < nowDate);
 
-        const pastEvents = events.filter(e => {
-            const eventDate = e.date.toDate();
-            return eventDate < nowDate;
-        });
-
-        // Show current event (the nearest upcoming one)
         if (upcomingEvents.length > 0) {
-            currentEvent = upcomingEvents[upcomingEvents.length - 1]; // earliest upcoming
+            currentEvent = upcomingEvents[upcomingEvents.length - 1];
             showCurrentEvent(currentEvent);
         } else {
             showNoEvent();
         }
 
-        // Show past events
         showPastEvents(pastEvents);
-
     } catch (error) {
         console.error('Errore caricamento eventi:', error);
         showNoEvent();
@@ -124,10 +135,14 @@ function showCurrentEvent(event) {
     eventDetailsSection.classList.remove('hidden');
 
     eventTitle.textContent = event.title;
-    const eventDate = event.date.toDate();
     eventDateHero.textContent = formatDateTime(event.date);
-
     bookingEventId.value = event.id;
+
+    // Locandina
+    if (event.imageUrl) {
+        locandinaImg.src = event.imageUrl;
+        locandinaSection.classList.remove('hidden');
+    }
 
     // Check if booking is still open
     const deadlineDate = event.bookingDeadline.toDate();
@@ -139,15 +154,18 @@ function showCurrentEvent(event) {
         bookingFormWrapper.classList.remove('hidden');
         bookingClosed.classList.add('hidden');
         btnPrenota.classList.remove('hidden');
+        btnModifica.classList.remove('hidden');
         bookingFormSubtitle.textContent = `Prenota per: ${event.title}`;
     } else {
         countdownWrapper.innerHTML = '<div class="countdown-expired">Prenotazioni chiuse</div>';
         bookingFormWrapper.classList.add('hidden');
         bookingClosed.classList.remove('hidden');
         btnPrenota.classList.add('hidden');
+        btnModifica.classList.add('hidden');
+        // Hide modify section too
+        document.getElementById('modifica').classList.add('hidden');
     }
 
-    // Build details cards
     buildDetailsGrid(event);
 }
 
@@ -155,13 +173,13 @@ function showNoEvent() {
     heroNoEvent.classList.remove('hidden');
     eventDetailsSection.classList.add('hidden');
     bookingSection.classList.add('hidden');
+    document.getElementById('modifica').classList.add('hidden');
 }
 
 // --- Build Event Details Grid ---
 function buildDetailsGrid(event) {
     let html = '';
 
-    // Date & Time
     html += `
         <div class="detail-card">
             <div class="icon">&#128197;</div>
@@ -169,7 +187,6 @@ function buildDetailsGrid(event) {
             <p>${formatDateTime(event.date)}</p>
         </div>`;
 
-    // Location
     if (event.location) {
         html += `
         <div class="detail-card">
@@ -179,7 +196,6 @@ function buildDetailsGrid(event) {
         </div>`;
     }
 
-    // Cost
     if (event.costMembers != null || event.costNonMembers != null) {
         html += `
         <div class="detail-card">
@@ -198,7 +214,6 @@ function buildDetailsGrid(event) {
         </div>`;
     }
 
-    // Deadline
     if (event.bookingDeadline) {
         html += `
         <div class="detail-card">
@@ -208,7 +223,6 @@ function buildDetailsGrid(event) {
         </div>`;
     }
 
-    // Menu
     if (event.menu) {
         const menuHtml = escapeHtml(event.menu).replace(/\n/g, '<br>');
         html += `
@@ -219,7 +233,6 @@ function buildDetailsGrid(event) {
         </div>`;
     }
 
-    // Description
     if (event.description) {
         const descHtml = escapeHtml(event.description).replace(/\n/g, '<br>');
         html += `
@@ -245,6 +258,7 @@ function startCountdown(deadline) {
             bookingFormWrapper.classList.add('hidden');
             bookingClosed.classList.remove('hidden');
             btnPrenota.classList.add('hidden');
+            btnModifica.classList.add('hidden');
             return;
         }
 
@@ -266,11 +280,8 @@ function startCountdown(deadline) {
 // --- Booking Form ---
 bookingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-
-    // Reset errors
     bookingForm.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
 
-    // Get values
     const name = document.getElementById('bkName').value.trim();
     const phone = document.getElementById('bkPhone').value.trim();
     const email = document.getElementById('bkEmail').value.trim();
@@ -283,27 +294,18 @@ bookingForm.addEventListener('submit', async (e) => {
     const notes = document.getElementById('bkNotes').value.trim();
     const eventId = bookingEventId.value;
 
-    // Validation
     let valid = true;
     if (!name) {
         document.getElementById('bkName').closest('.form-group').classList.add('error');
-        valid = false;
-    }
-    if (!phone) {
-        document.getElementById('bkPhone').closest('.form-group').classList.add('error');
         valid = false;
     }
     if (adults <= 0 && children <= 0) {
         document.getElementById('bkAdults').closest('.form-group').classList.add('error');
         valid = false;
     }
-    if (eating + notEating !== adults + children) {
-        // Just a warning, not blocking
-    }
 
     if (!valid) return;
 
-    // Disable button
     btnSubmitBooking.disabled = true;
     btnSubmitBooking.innerHTML = '<span class="spinner spinner-white"></span> Invio...';
 
@@ -327,7 +329,6 @@ bookingForm.addEventListener('submit', async (e) => {
 
         await addDoc(collection(db, 'bookings'), bookingData);
 
-        // Show confirmation
         bookingFormWrapper.classList.add('hidden');
         bookingConfirmation.classList.remove('hidden');
         confirmationDetails.innerHTML = `
@@ -338,7 +339,6 @@ bookingForm.addEventListener('submit', async (e) => {
 
         showToast('Prenotazione inviata con successo!');
         bookingForm.reset();
-
     } catch (error) {
         console.error('Errore prenotazione:', error);
         showToast('Errore nell\'invio della prenotazione. Riprova.', 'error');
@@ -348,10 +348,140 @@ bookingForm.addEventListener('submit', async (e) => {
     btnSubmitBooking.innerHTML = 'Conferma Prenotazione';
 });
 
-// New booking button (after confirmation)
 btnNewBooking.addEventListener('click', () => {
     bookingConfirmation.classList.add('hidden');
     bookingFormWrapper.classList.remove('hidden');
+});
+
+// --- Booking Lookup & Modification ---
+lookupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    lookupForm.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
+
+    const lookupName = document.getElementById('lookupName').value.trim();
+    if (!lookupName) {
+        document.getElementById('lookupName').closest('.form-group').classList.add('error');
+        return;
+    }
+
+    if (!currentEvent) return;
+
+    try {
+        const q = query(
+            collection(db, 'bookings'),
+            where('eventId', '==', currentEvent.id)
+        );
+        const snapshot = await getDocs(q);
+
+        const results = [];
+        snapshot.forEach(d => {
+            const data = d.data();
+            if (data.name && data.name.toLowerCase().includes(lookupName.toLowerCase())) {
+                results.push({ id: d.id, ...data });
+            }
+        });
+
+        if (results.length === 0) {
+            lookupResults.classList.add('hidden');
+            lookupEmpty.classList.remove('hidden');
+        } else {
+            lookupEmpty.classList.add('hidden');
+            lookupResults.classList.remove('hidden');
+
+            let html = '';
+            results.forEach(b => {
+                html += `
+                <div class="lookup-result-card" data-id="${b.id}">
+                    <div>
+                        <strong>${escapeHtml(b.name)}</strong><br>
+                        <span class="text-muted" style="font-size:0.85rem;">
+                            ${b.adults || 0} adulti, ${b.children || 0} bambini &middot;
+                            ${b.eating || 0} mangiano
+                            ${b.allergies ? ' &middot; Allergie: ' + escapeHtml(b.allergies) : ''}
+                        </span>
+                    </div>
+                    <button class="btn btn-sm btn-secondary btn-select-booking" data-id="${b.id}">Modifica</button>
+                </div>`;
+            });
+            lookupResultsList.innerHTML = html;
+
+            // Attach click handlers
+            lookupResultsList.querySelectorAll('.btn-select-booking').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const booking = results.find(r => r.id === btn.dataset.id);
+                    if (booking) openModifyForm(booking);
+                });
+            });
+        }
+    } catch (error) {
+        console.error('Errore ricerca:', error);
+        showToast('Errore nella ricerca. Riprova.', 'error');
+    }
+});
+
+function openModifyForm(booking) {
+    modifyLookupWrapper.classList.add('hidden');
+    modifyFormWrapper.classList.remove('hidden');
+    modifyFormSubtitle.textContent = `Modifica prenotazione di ${booking.name}`;
+
+    document.getElementById('modBkId').value = booking.id;
+    document.getElementById('modBkName').value = booking.name || '';
+    document.getElementById('modBkPhone').value = booking.phone || '';
+    document.getElementById('modBkEmail').value = booking.email || '';
+    document.getElementById('modBkAdults').value = booking.adults || 0;
+    document.getElementById('modBkChildren').value = booking.children || 0;
+    document.getElementById('modBkEating').value = booking.eating || 0;
+    document.getElementById('modBkNotEating').value = booking.notEating || 0;
+    document.getElementById('modBkMember').checked = booking.isMember || false;
+    document.getElementById('modBkAllergies').value = booking.allergies || '';
+    document.getElementById('modBkNotes').value = booking.notes || '';
+}
+
+btnCancelModify.addEventListener('click', () => {
+    modifyFormWrapper.classList.add('hidden');
+    modifyLookupWrapper.classList.remove('hidden');
+});
+
+modifyForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const id = document.getElementById('modBkId').value;
+    const adults = parseInt(document.getElementById('modBkAdults').value) || 0;
+    const children = parseInt(document.getElementById('modBkChildren').value) || 0;
+    const eating = parseInt(document.getElementById('modBkEating').value) || 0;
+    const notEating = parseInt(document.getElementById('modBkNotEating').value) || 0;
+
+    const updatedData = {
+        name: document.getElementById('modBkName').value.trim(),
+        phone: document.getElementById('modBkPhone').value.trim(),
+        email: document.getElementById('modBkEmail').value.trim(),
+        adults,
+        children,
+        totalPeople: adults + children,
+        eating,
+        notEating,
+        isMember: document.getElementById('modBkMember').checked,
+        allergies: document.getElementById('modBkAllergies').value.trim(),
+        notes: document.getElementById('modBkNotes').value.trim()
+    };
+
+    if (!updatedData.name) {
+        showToast('Il nome è obbligatorio', 'warning');
+        return;
+    }
+
+    try {
+        await updateDoc(doc(db, 'bookings', id), updatedData);
+        showToast('Prenotazione aggiornata con successo!');
+        modifyFormWrapper.classList.add('hidden');
+        modifyLookupWrapper.classList.remove('hidden');
+        lookupResults.classList.add('hidden');
+        lookupEmpty.classList.add('hidden');
+        document.getElementById('lookupName').value = '';
+    } catch (error) {
+        console.error('Errore aggiornamento:', error);
+        showToast('Errore nell\'aggiornamento. Riprova.', 'error');
+    }
 });
 
 // --- Past Events ---
@@ -380,13 +510,6 @@ function showPastEvents(events) {
     });
 
     pastEventsList.innerHTML = html;
-}
-
-// --- Utility ---
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }
 
 // --- Footer Year ---

@@ -181,7 +181,7 @@
                         </div>
                         <div class="form-group">
                             <label>Menu</label>
-                            <textarea id="evMenu" placeholder="Antipasto: Bruschette&#10;Primo: Pasta al ragù&#10;Secondo: Arista di maiale&#10;Dolce: Tiramisù" rows="5"></textarea>
+                            <textarea id="evMenu" placeholder="Antipasto: Bruschette&#10;Primo: Pasta al rag&ugrave;&#10;Secondo: Arista di maiale&#10;Dolce: Tiramis&ugrave;" rows="5"></textarea>
                             <span class="hint">Inserisci il menu dell'evento (uno per riga)</span>
                         </div>
                         <div class="form-row">
@@ -199,6 +199,19 @@
                             <input type="number" id="evMaxSeats" min="0" placeholder="100">
                             <span class="hint">Lascia vuoto per nessun limite</span>
                         </div>
+
+                        <!-- Locandina upload -->
+                        <div class="form-group">
+                            <label>Locandina / Immagine Evento</label>
+                            <input type="file" id="evImage" accept="image/*" class="file-input">
+                            <span class="hint">Carica un'immagine per la locandina dell'evento (JPG, PNG)</span>
+                            <div id="evImagePreview" class="image-preview hidden">
+                                <img id="evImagePreviewImg" src="" alt="Anteprima">
+                                <button type="button" class="btn btn-sm btn-danger" id="evImageRemove">Rimuovi</button>
+                            </div>
+                            <input type="hidden" id="evImageUrl" value="">
+                        </div>
+
                         <div class="form-actions" style="text-align:left; display:flex; gap:12px;">
                             <button type="submit" class="btn btn-secondary" id="btnSaveEvent">Salva Evento</button>
                             <button type="button" class="btn btn-outline" id="btnCancelEvent">Annulla</button>
@@ -233,7 +246,10 @@
             <div class="admin-section" id="section-bookings">
                 <div class="admin-page-header">
                     <h2>Prenotazioni</h2>
-                    <button class="btn btn-secondary" id="btnAddBooking">+ Aggiungi Manuale</button>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="btn btn-outline" id="btnPrintList">&#128424; Stampa Lista Presenze</button>
+                        <button class="btn btn-secondary" id="btnAddBooking">+ Aggiungi Manuale</button>
+                    </div>
                 </div>
 
                 <div id="bookingsContent">
@@ -321,7 +337,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Telefono</label>
-                        <input type="tel" id="editBkPhone" required>
+                        <input type="tel" id="editBkPhone">
                     </div>
                     <div class="form-group">
                         <label>Email</label>
@@ -384,12 +400,14 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Telefono <span class="required">*</span></label>
-                        <input type="tel" id="addBkPhone" required>
+                        <label>Telefono</label>
+                        <input type="tel" id="addBkPhone">
+                        <span class="hint">Opzionale</span>
                     </div>
                     <div class="form-group">
                         <label>Email</label>
                         <input type="email" id="addBkEmail">
+                        <span class="hint">Opzionale</span>
                     </div>
                 </div>
                 <div class="form-row">

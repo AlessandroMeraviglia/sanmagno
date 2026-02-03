@@ -2,14 +2,13 @@
 // Contrada San Magno - Admin Panel Logic
 // ============================================
 
-import { db, auth } from './firebase-config.js';
+import { db, auth, storage } from './firebase-config.js';
 import {
     collection,
     query,
     where,
     orderBy,
     getDocs,
-    getDoc,
     addDoc,
     updateDoc,
     deleteDoc,
@@ -21,6 +20,12 @@ import {
     signOut,
     onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+import {
+    ref,
+    uploadBytes,
+    getDownloadURL,
+    deleteObject
+} from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js';
 
 // --- DOM Elements ---
 const loginScreen = document.getElementById('loginScreen');
@@ -52,12 +57,20 @@ const eventFormTitle = document.getElementById('eventFormTitle');
 const btnNewEvent = document.getElementById('btnNewEvent');
 const btnCancelEvent = document.getElementById('btnCancelEvent');
 
+// Event image
+const evImageInput = document.getElementById('evImage');
+const evImagePreview = document.getElementById('evImagePreview');
+const evImagePreviewImg = document.getElementById('evImagePreviewImg');
+const evImageRemove = document.getElementById('evImageRemove');
+const evImageUrl = document.getElementById('evImageUrl');
+
 // Bookings
 const bookingsTableWrapper = document.getElementById('bookingsTableWrapper');
 const bookingsTableBody = document.getElementById('bookingsTableBody');
 const noBookings = document.getElementById('noBookings');
 const bookingsCount = document.getElementById('bookingsCount');
 const btnAddBooking = document.getElementById('btnAddBooking');
+const btnPrintList = document.getElementById('btnPrintList');
 
 // Edit Booking Modal
 const editBookingModal = document.getElementById('editBookingModal');
@@ -84,6 +97,7 @@ let allEvents = [];
 let currentBookings = [];
 let currentKitchenStaff = [];
 let selectedEventId = '';
+let pendingImageFile = null;
 
 // --- Helpers ---
 const months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -172,15 +186,12 @@ document.querySelectorAll('.admin-nav a').forEach(link => {
         e.preventDefault();
         const section = link.dataset.section;
 
-        // Update active link
         document.querySelectorAll('.admin-nav a').forEach(l => l.classList.remove('active'));
         link.classList.add('active');
 
-        // Show section
         document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
         document.getElementById(`section-${section}`).classList.add('active');
 
-        // Close mobile sidebar
         adminSidebar.classList.remove('open');
     });
 });
@@ -192,14 +203,13 @@ async function loadAllEvents() {
         const snapshot = await getDocs(q);
 
         allEvents = [];
-        snapshot.forEach(doc => {
-            allEvents.push({ id: doc.id, ...doc.data() });
+        snapshot.forEach(d => {
+            allEvents.push({ id: d.id, ...d.data() });
         });
 
         renderEventsTable();
         populateEventSelector();
 
-        // Auto-select the first upcoming event
         const now = new Date();
         const upcoming = allEvents.find(e => e.date.toDate() >= now);
         if (upcoming) {
@@ -295,6 +305,40 @@ function renderEventsTable() {
     eventsTableBody.innerHTML = html;
 }
 
+// --- Event Image Upload ---
+evImageInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    pendingImageFile = file;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        evImagePreviewImg.src = ev.target.result;
+        evImagePreview.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+});
+
+evImageRemove.addEventListener('click', () => {
+    pendingImageFile = null;
+    evImageInput.value = '';
+    evImageUrl.value = '';
+    evImagePreview.classList.add('hidden');
+    evImagePreviewImg.src = '';
+});
+
+async function uploadEventImage(eventId) {
+    if (!pendingImageFile) return evImageUrl.value || null;
+
+    const fileExt = pendingImageFile.name.split('.').pop();
+    const storageRef = ref(storage, `events/${eventId}/locandina.${fileExt}`);
+
+    const snapshot = await uploadBytes(storageRef, pendingImageFile);
+    const url = await getDownloadURL(snapshot.ref);
+    pendingImageFile = null;
+    return url;
+}
+
 // --- Event Form ---
 btnNewEvent.addEventListener('click', () => {
     resetEventForm();
@@ -325,25 +369,44 @@ eventForm.addEventListener('submit', async (e) => {
         return;
     }
 
-    const eventData = {
-        title,
-        description,
-        date: Timestamp.fromDate(new Date(dateStr)),
-        bookingDeadline: Timestamp.fromDate(new Date(deadlineStr)),
-        location,
-        menu,
-        costMembers,
-        costNonMembers,
-        maxSeats
-    };
+    const btnSave = document.getElementById('btnSaveEvent');
+    btnSave.disabled = true;
+    btnSave.textContent = 'Salvataggio...';
 
     try {
+        const eventData = {
+            title,
+            description,
+            date: Timestamp.fromDate(new Date(dateStr)),
+            bookingDeadline: Timestamp.fromDate(new Date(deadlineStr)),
+            location,
+            menu,
+            costMembers,
+            costNonMembers,
+            maxSeats
+        };
+
+        let eventId = id;
+
         if (id) {
+            // Upload image if pending
+            const imageUrl = await uploadEventImage(id);
+            if (imageUrl !== undefined && imageUrl !== null) {
+                eventData.imageUrl = imageUrl;
+            } else if (evImageUrl.value === '') {
+                eventData.imageUrl = null;
+            }
             await updateDoc(doc(db, 'events', id), eventData);
             showToast('Evento aggiornato!');
         } else {
             eventData.createdAt = Timestamp.now();
-            await addDoc(collection(db, 'events'), eventData);
+            const docRef = await addDoc(collection(db, 'events'), eventData);
+            eventId = docRef.id;
+            // Upload image for new event
+            const imageUrl = await uploadEventImage(eventId);
+            if (imageUrl) {
+                await updateDoc(doc(db, 'events', eventId), { imageUrl });
+            }
             showToast('Evento creato!');
         }
 
@@ -353,6 +416,9 @@ eventForm.addEventListener('submit', async (e) => {
         console.error('Error saving event:', error);
         showToast('Errore nel salvataggio dell\'evento', 'error');
     }
+
+    btnSave.disabled = false;
+    btnSave.textContent = 'Salva Evento';
 });
 
 function resetEventForm() {
@@ -366,6 +432,11 @@ function resetEventForm() {
     document.getElementById('evCostMember').value = '';
     document.getElementById('evCostNonMember').value = '';
     document.getElementById('evMaxSeats').value = '';
+    evImageInput.value = '';
+    evImageUrl.value = '';
+    evImagePreview.classList.add('hidden');
+    evImagePreviewImg.src = '';
+    pendingImageFile = null;
 }
 
 // --- Bookings ---
@@ -379,8 +450,8 @@ async function loadBookings(eventId) {
         const snapshot = await getDocs(q);
 
         currentBookings = [];
-        snapshot.forEach(doc => {
-            currentBookings.push({ id: doc.id, ...doc.data() });
+        snapshot.forEach(d => {
+            currentBookings.push({ id: d.id, ...d.data() });
         });
 
         renderBookingsTable();
@@ -407,7 +478,7 @@ function renderBookingsTable() {
         html += `
         <tr>
             <td><strong>${escapeHtml(b.name)}</strong></td>
-            <td>${escapeHtml(b.phone)}</td>
+            <td>${escapeHtml(b.phone || '-')}</td>
             <td>${b.adults || 0}</td>
             <td>${b.children || 0}</td>
             <td>${b.eating || 0}</td>
@@ -488,7 +559,6 @@ btnAddBooking.addEventListener('click', () => {
         showToast('Seleziona prima un evento', 'warning');
         return;
     }
-    // Reset form
     addBookingForm.reset();
     document.getElementById('addBkAdults').value = 1;
     document.getElementById('addBkChildren').value = 0;
@@ -524,8 +594,8 @@ addBookingForm.addEventListener('submit', async (e) => {
         createdAt: Timestamp.now()
     };
 
-    if (!bookingData.name || !bookingData.phone) {
-        showToast('Nome e telefono sono obbligatori', 'warning');
+    if (!bookingData.name) {
+        showToast('Il nome è obbligatorio', 'warning');
         return;
     }
 
@@ -561,7 +631,6 @@ async function deleteEvent(eventId) {
     if (!confirm('Sei sicuro di voler eliminare questo evento? Verranno eliminate anche tutte le prenotazioni associate.')) return;
 
     try {
-        // Delete associated bookings
         const bookingsQ = query(collection(db, 'bookings'), where('eventId', '==', eventId));
         const bookingsSnap = await getDocs(bookingsQ);
         const deletePromises = [];
@@ -569,14 +638,12 @@ async function deleteEvent(eventId) {
             deletePromises.push(deleteDoc(doc(db, 'bookings', d.id)));
         });
 
-        // Delete associated kitchen staff
         const kitchenQ = query(collection(db, 'kitchenStaff'), where('eventId', '==', eventId));
         const kitchenSnap = await getDocs(kitchenQ);
         kitchenSnap.forEach(d => {
             deletePromises.push(deleteDoc(doc(db, 'kitchenStaff', d.id)));
         });
 
-        // Delete the event
         deletePromises.push(deleteDoc(doc(db, 'events', eventId)));
 
         await Promise.all(deletePromises);
@@ -594,13 +661,11 @@ function editEvent(eventId) {
     const event = allEvents.find(e => e.id === eventId);
     if (!event) return;
 
-    // Navigate to events section
     document.querySelectorAll('.admin-nav a').forEach(l => l.classList.remove('active'));
     document.querySelector('.admin-nav a[data-section="events"]').classList.add('active');
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.getElementById('section-events').classList.add('active');
 
-    // Fill form
     eventFormTitle.textContent = 'Modifica Evento';
     document.getElementById('evId').value = event.id;
     document.getElementById('evTitle').value = event.title || '';
@@ -612,6 +677,18 @@ function editEvent(eventId) {
     document.getElementById('evCostMember').value = event.costMembers || '';
     document.getElementById('evCostNonMember').value = event.costNonMembers || '';
     document.getElementById('evMaxSeats').value = event.maxSeats || '';
+
+    // Image
+    pendingImageFile = null;
+    evImageInput.value = '';
+    if (event.imageUrl) {
+        evImageUrl.value = event.imageUrl;
+        evImagePreviewImg.src = event.imageUrl;
+        evImagePreview.classList.remove('hidden');
+    } else {
+        evImageUrl.value = '';
+        evImagePreview.classList.add('hidden');
+    }
 
     eventFormWrapper.classList.remove('hidden');
     eventFormWrapper.scrollIntoView({ behavior: 'smooth' });
@@ -627,8 +704,8 @@ async function loadKitchenStaff(eventId) {
         const snapshot = await getDocs(q);
 
         currentKitchenStaff = [];
-        snapshot.forEach(doc => {
-            currentKitchenStaff.push({ id: doc.id, ...doc.data() });
+        snapshot.forEach(d => {
+            currentKitchenStaff.push({ id: d.id, ...d.data() });
         });
 
         renderKitchenStaff();
@@ -716,19 +793,18 @@ function updateStats() {
     const totalEating = confirmedBookings.reduce((sum, b) => sum + (b.eating || 0), 0);
     const totalNotEating = confirmedBookings.reduce((sum, b) => sum + (b.notEating || 0), 0);
     const totalChildren = confirmedBookings.reduce((sum, b) => sum + (b.children || 0), 0);
-    const kitchenCount = currentKitchenStaff.length;
-    const grandTotal = totalPeople + kitchenCount;
+    const staffCount = currentKitchenStaff.length;
+    const grandTotal = totalPeople + staffCount;
 
     statTotalPeople.textContent = totalPeople;
     statTotalBookings.textContent = confirmedBookings.length;
     statEating.textContent = totalEating;
     statNotEating.textContent = totalNotEating;
     statChildren.textContent = totalChildren;
-    statKitchen.textContent = kitchenCount;
+    statKitchen.textContent = staffCount;
     statGrandTotal.textContent = grandTotal;
-    statSeats.textContent = totalEating; // seats needed = people eating
+    statSeats.textContent = totalEating;
 
-    // Allergy summary
     const allergies = confirmedBookings.filter(b => b.allergies && b.allergies.trim());
     if (allergies.length > 0) {
         allergySummary.style.display = 'block';
@@ -754,7 +830,125 @@ function resetStats() {
     allergySummary.style.display = 'none';
 }
 
-// --- Expose functions to global scope (for onclick handlers) ---
+// --- Print Attendance List ---
+btnPrintList.addEventListener('click', () => {
+    if (!selectedEventId) {
+        showToast('Seleziona prima un evento', 'warning');
+        return;
+    }
+
+    const event = allEvents.find(e => e.id === selectedEventId);
+    if (!event) return;
+
+    const confirmedBookings = currentBookings.filter(b => b.status !== 'cancelled');
+
+    const totalPeople = confirmedBookings.reduce((sum, b) => sum + (b.totalPeople || (b.adults || 0) + (b.children || 0)), 0);
+    const totalEating = confirmedBookings.reduce((sum, b) => sum + (b.eating || 0), 0);
+    const totalNotEating = confirmedBookings.reduce((sum, b) => sum + (b.notEating || 0), 0);
+    const totalChildren = confirmedBookings.reduce((sum, b) => sum + (b.children || 0), 0);
+    const totalAdults = confirmedBookings.reduce((sum, b) => sum + (b.adults || 0), 0);
+
+    let rows = '';
+    confirmedBookings.forEach((b, i) => {
+        rows += `
+        <tr>
+            <td style="text-align:center;">${i + 1}</td>
+            <td><strong>${escapeHtml(b.name)}</strong></td>
+            <td style="text-align:center;">${(b.adults || 0) + (b.children || 0)}</td>
+            <td style="text-align:center;">${b.adults || 0}</td>
+            <td style="text-align:center;">${b.children || 0}</td>
+            <td style="text-align:center;">${b.eating || 0}</td>
+            <td style="text-align:center;">${b.isMember ? 'SI' : 'NO'}</td>
+            <td style="font-size:11px;">${escapeHtml(b.allergies || '')}</td>
+            <td style="text-align:center; width:55px;">&#9744;</td>
+            <td style="text-align:center; width:55px;">&#9744;</td>
+        </tr>`;
+    });
+
+    // Kitchen staff rows
+    let kitchenRows = '';
+    currentKitchenStaff.forEach(s => {
+        kitchenRows += `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '-')}</td></tr>`;
+    });
+
+    const printHtml = `<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista Presenze - ${escapeHtml(event.title)}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; padding: 20px; color: #222; }
+        h1 { font-size: 20px; text-align: center; margin-bottom: 4px; }
+        h2 { font-size: 14px; text-align: center; color: #555; margin-bottom: 2px; font-weight: normal; }
+        .info { text-align: center; margin-bottom: 16px; font-size: 12px; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #999; padding: 5px 8px; text-align: left; }
+        th { background: #f0f0f0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
+        .summary-item { text-align: center; }
+        .summary-item .num { font-size: 22px; font-weight: bold; }
+        .summary-item .label { font-size: 10px; text-transform: uppercase; color: #666; }
+        .kitchen-section { margin-top: 20px; }
+        .kitchen-section h3 { font-size: 14px; margin-bottom: 8px; }
+        .print-btn { position: fixed; top: 10px; right: 10px; background: #722F37; color: #fff; border: none; padding: 10px 24px; font-size: 14px; cursor: pointer; border-radius: 6px; }
+        @media print { .print-btn { display: none; } }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">Stampa</button>
+    <h1>CONTRADA SAN MAGNO</h1>
+    <h2>${escapeHtml(event.title)}</h2>
+    <p class="info">${formatDateTime(event.date)} &mdash; ${escapeHtml(event.location || '')}</p>
+
+    <div class="summary">
+        <div class="summary-item"><div class="num">${confirmedBookings.length}</div><div class="label">Prenotazioni</div></div>
+        <div class="summary-item"><div class="num">${totalPeople}</div><div class="label">Persone</div></div>
+        <div class="summary-item"><div class="num">${totalAdults}</div><div class="label">Adulti</div></div>
+        <div class="summary-item"><div class="num">${totalChildren}</div><div class="label">Bambini</div></div>
+        <div class="summary-item"><div class="num">${totalEating}</div><div class="label">Mangiano</div></div>
+        <div class="summary-item"><div class="num">${totalNotEating}</div><div class="label">Non Mangiano</div></div>
+        <div class="summary-item"><div class="num">${currentKitchenStaff.length}</div><div class="label">Staff Cucina</div></div>
+        <div class="summary-item"><div class="num" style="color:#722F37;">${totalPeople + currentKitchenStaff.length}</div><div class="label"><strong>Totale Presenti</strong></div></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:30px;">#</th>
+                <th>Nome</th>
+                <th style="width:40px;">Tot</th>
+                <th style="width:45px;">Adulti</th>
+                <th style="width:50px;">Bambini</th>
+                <th style="width:50px;">Mangia</th>
+                <th style="width:40px;">Tess.</th>
+                <th>Allergie</th>
+                <th style="width:55px;">Entrato</th>
+                <th style="width:55px;">Pagato</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows}
+        </tbody>
+    </table>
+
+    ${currentKitchenStaff.length > 0 ? `
+    <div class="kitchen-section">
+        <h3>Staff Cucina (${currentKitchenStaff.length})</h3>
+        <table>
+            <thead><tr><th>Nome</th><th>Ruolo</th></tr></thead>
+            <tbody>${kitchenRows}</tbody>
+        </table>
+    </div>` : ''}
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+});
+
+// --- Expose functions to global scope ---
 window.adminApp = {
     editEvent,
     deleteEvent,
