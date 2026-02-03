@@ -9,13 +9,13 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- Favicon placeholder -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>SM</text></svg>">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
         <div class="hero-content">
             <div class="loading-state" id="heroLoading">
                 <div class="spinner spinner-white"></div>
-                <p style="margin-top:12px; opacity:0.8">Caricamento evento...</p>
+                <p class="mt-2 text-muted">Caricamento evento...</p>
             </div>
             <div id="heroEvent" class="hidden">
                 <h2 id="eventTitle"></h2>
@@ -69,8 +69,8 @@
                 </div>
 
                 <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-                    <a href="#prenota" class="btn btn-white btn-lg" id="btnPrenota">Prenota Ora</a>
-                    <a href="#modifica" class="btn btn-outline btn-lg" id="btnModifica" style="border-color:#fff; color:#fff;">Modifica Prenotazione</a>
+                    <a href="#prenota" class="btn btn-secondary btn-lg" id="btnPrenota">Prenota Ora</a>
+                    <a href="#modifica" class="btn btn-outline btn-lg" id="btnModifica">Modifica Prenotazione</a>
                 </div>
             </div>
             <div id="heroNoEvent" class="hidden">
@@ -89,7 +89,7 @@
 
     <!-- ========== EVENT DETAILS ========== -->
     <section class="event-details-section container" id="eventDetails">
-        <h2 class="text-center" style="color: var(--primary);">Dettagli Evento</h2>
+        <h2 class="text-center">Dettagli Evento</h2>
         <div class="event-details-grid" id="detailsGrid">
             <!-- Populated by JS -->
         </div>
@@ -188,7 +188,7 @@
         <!-- Booking closed message -->
         <div class="booking-form-wrapper hidden" id="bookingClosed">
             <div class="booking-confirmation">
-                <div class="check-icon" style="color: var(--warning);">&#9888;</div>
+                <div class="check-icon" style="background: var(--warning);">&#9888;</div>
                 <h3>Prenotazioni Chiuse</h3>
                 <p>Il termine per le prenotazioni a questo evento &egrave; scaduto.</p>
             </div>
@@ -196,7 +196,7 @@
     </section>
 
     <!-- ========== MODIFY BOOKING ========== -->
-    <section class="booking-section" id="modifica" style="background: #F5EDE3;">
+    <section class="booking-section" id="modifica">
         <div class="booking-form-wrapper" id="modifyLookupWrapper">
             <h2>Modifica la tua Prenotazione</h2>
             <p class="form-subtitle">Inserisci il nome con cui hai prenotato per cercare la tua prenotazione</p>
@@ -214,11 +214,11 @@
 
             <!-- Lookup results -->
             <div id="lookupResults" class="hidden mt-3">
-                <h4 style="margin-bottom:12px; color: var(--primary);">Prenotazioni trovate:</h4>
+                <h4 class="mb-2" style="font-size: 0.9rem;">Prenotazioni trovate:</h4>
                 <div id="lookupResultsList"></div>
             </div>
 
-            <div id="lookupEmpty" class="hidden mt-3" style="text-align:center; color: var(--text-muted);">
+            <div id="lookupEmpty" class="hidden mt-3 text-center text-muted">
                 <p>Nessuna prenotazione trovata con questo nome per l'evento corrente.</p>
             </div>
         </div>
@@ -311,7 +311,7 @@
     <!-- ========== FOOTER ========== -->
     <footer class="site-footer">
         <div class="container">
-            <p>&copy; <span id="footerYear"></span> Contrada San Magno. Tutti i diritti riservati.</p>
+            <p>&copy; <span id="footerYear"></span> Contrada San Magno</p>
             <p class="mt-1"><a href="admin.html">Pannello di Gestione</a></p>
         </div>
     </footer>

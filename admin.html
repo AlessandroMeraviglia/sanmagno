@@ -8,12 +8,12 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
 
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>SM</text></svg>">
 </head>
 <body>
 
@@ -58,22 +58,22 @@
                 <li><a href="#" data-section="kitchen"><span class="nav-icon">&#127859;</span> Staff Cucina</a></li>
             </ul>
             <div class="admin-sidebar-footer">
-                <a href="index.html" style="color: rgba(255,255,255,0.6); font-size:0.85rem;">&larr; Torna al sito</a>
+                <a href="index.html" style="color: rgba(255,255,255,0.5); font-size:0.82rem;">&larr; Torna al sito</a>
                 <br>
-                <a href="#" id="logoutBtn" style="color: var(--secondary); font-size:0.85rem; margin-top:8px; display:inline-block;">Esci</a>
-                <p style="font-size:0.7rem; opacity:0.4; margin-top:8px" id="adminEmail"></p>
+                <a href="#" id="logoutBtn" style="color: var(--primary); font-size:0.82rem; margin-top:8px; display:inline-block;">Esci</a>
+                <p style="font-size:0.7rem; opacity:0.3; margin-top:8px" id="adminEmail"></p>
             </div>
         </aside>
 
         <!-- Mobile sidebar toggle -->
-        <button class="mobile-menu-toggle" id="mobileMenuToggle" style="position:fixed;top:12px;left:12px;z-index:60;background:var(--primary);border-radius:8px;padding:8px 12px;">&#9776;</button>
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" style="position:fixed;top:14px;left:14px;z-index:60;background:var(--dark);color:#fff;border-radius:var(--radius-xs);padding:8px 12px;border:none;cursor:pointer;">&#9776;</button>
 
         <!-- Main Content -->
         <main class="admin-main">
 
-            <!-- Event Selector (shown on dashboard, bookings, kitchen) -->
+            <!-- Event Selector -->
             <div class="event-selector" id="eventSelector">
-                <label>Evento:</label>
+                <label>Evento</label>
                 <select id="adminEventSelect">
                     <option value="">-- Seleziona evento --</option>
                 </select>
@@ -116,10 +116,10 @@
                         <div class="stat-number" id="statKitchen">0</div>
                         <div class="stat-label">Staff Cucina</div>
                     </div>
-                    <div class="stat-card" style="border: 2px solid var(--secondary);">
+                    <div class="stat-card stat-card--highlight">
                         <div class="stat-icon">&#127969;</div>
-                        <div class="stat-number" id="statGrandTotal" style="color: var(--secondary-dark);">0</div>
-                        <div class="stat-label" style="font-weight:700;">Totale Presenti</div>
+                        <div class="stat-number" id="statGrandTotal">0</div>
+                        <div class="stat-label">Totale Presenti</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon">&#129368;</div>
@@ -131,7 +131,7 @@
                 <!-- Allergies summary -->
                 <div class="table-wrapper mt-3" id="allergySummary" style="display:none;">
                     <div class="table-header">
-                        <h3>&#9888; Allergie e Intolleranze Segnalate</h3>
+                        <h3>Allergie e Intolleranze Segnalate</h3>
                     </div>
                     <table class="admin-table">
                         <thead>
@@ -153,8 +153,8 @@
                 </div>
 
                 <!-- Event Form -->
-                <div class="table-wrapper hidden" id="eventFormWrapper" style="padding: 24px; margin-bottom: 24px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px;" id="eventFormTitle">Nuovo Evento</h3>
+                <div class="table-wrapper hidden" id="eventFormWrapper" style="padding: 28px; margin-bottom: 24px;">
+                    <h3 style="margin-bottom: 20px; font-size: 1.1rem;" id="eventFormTitle">Nuovo Evento</h3>
                     <form id="eventForm" class="event-form">
                         <input type="hidden" id="evId" value="">
                         <div class="form-group">
@@ -247,7 +247,7 @@
                 <div class="admin-page-header">
                     <h2>Prenotazioni</h2>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button class="btn btn-outline" id="btnPrintList">&#128424; Stampa Lista Presenze</button>
+                        <button class="btn btn-outline" id="btnPrintList">Stampa Lista Presenze</button>
                         <button class="btn btn-secondary" id="btnAddBooking">+ Aggiungi Manuale</button>
                     </div>
                 </div>
@@ -289,8 +289,8 @@
                     <h2>Staff Cucina</h2>
                 </div>
 
-                <div class="table-wrapper" style="padding:24px; margin-bottom:24px;">
-                    <h3 style="color: var(--primary); margin-bottom:16px;">Aggiungi Staff</h3>
+                <div class="table-wrapper" style="padding:28px; margin-bottom:24px;">
+                    <h3 style="margin-bottom:16px; font-size:1.1rem;">Aggiungi Staff</h3>
                     <form id="kitchenForm" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
                         <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
                             <label>Nome <span class="required">*</span></label>
