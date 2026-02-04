@@ -20,6 +20,7 @@
     <!-- ========== LOGIN SCREEN ========== -->
     <div class="login-wrapper" id="loginScreen">
         <div class="login-card">
+            <img src="img/logo_sanmagno.svg" alt="Logo" class="login-logo">
             <h2>Pannello Gestione</h2>
             <p class="login-subtitle">Contrada San Magno</p>
             <div class="login-error" id="loginError"></div>
@@ -33,7 +34,7 @@
                     <input type="password" id="loginPassword" placeholder="Password" required>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-secondary btn-lg" style="width:100%">Accedi</button>
+                    <button type="submit" class="btn btn-red btn-lg" style="width:100%">Accedi</button>
                 </div>
             </form>
             <p class="mt-3 text-muted" style="font-size:0.8rem">
@@ -45,11 +46,26 @@
     <!-- ========== ADMIN PANEL ========== -->
     <div class="admin-layout hidden" id="adminPanel">
 
+        <!-- Mobile Topbar -->
+        <div class="admin-topbar" id="adminTopbar">
+            <div class="topbar-brand">
+                <img src="img/logo_sanmagno.svg" alt="Logo" class="topbar-logo">
+                <span class="topbar-title">San Magno</span>
+            </div>
+            <button class="admin-topbar-toggle" id="topbarMenuToggle" aria-label="Menu">&#9776;</button>
+        </div>
+
+        <!-- Sidebar Overlay (mobile) -->
+        <div class="admin-sidebar-overlay" id="sidebarOverlay"></div>
+
         <!-- Sidebar -->
         <aside class="admin-sidebar" id="adminSidebar">
             <div class="admin-sidebar-brand">
-                <h2>San Magno</h2>
-                <small>Pannello di Gestione</small>
+                <img src="img/logo_sanmagno.svg" alt="Logo" class="sidebar-logo">
+                <div class="brand-text">
+                    <h2>San Magno</h2>
+                    <small>Pannello di Gestione</small>
+                </div>
             </div>
             <ul class="admin-nav">
                 <li><a href="#" class="active" data-section="dashboard"><span class="nav-icon">&#128202;</span> Dashboard</a></li>
@@ -65,18 +81,18 @@
             </div>
         </aside>
 
-        <!-- Mobile sidebar toggle -->
-        <button class="mobile-menu-toggle" id="mobileMenuToggle" style="position:fixed;top:14px;left:14px;z-index:60;background:var(--dark);color:#fff;border-radius:var(--radius-xs);padding:8px 12px;border:none;cursor:pointer;">&#9776;</button>
-
         <!-- Main Content -->
         <main class="admin-main">
 
-            <!-- Event Selector -->
-            <div class="event-selector" id="eventSelector">
-                <label>Evento</label>
-                <select id="adminEventSelect">
-                    <option value="">-- Seleziona evento --</option>
-                </select>
+            <!-- Event Selector (card-style) -->
+            <div class="event-selector-card" id="eventSelector">
+                <div class="selector-icon">&#128197;</div>
+                <div class="selector-info">
+                    <label>Evento selezionato</label>
+                    <select id="adminEventSelect">
+                        <option value="">-- Seleziona evento --</option>
+                    </select>
+                </div>
             </div>
 
             <!-- ===== DASHBOARD SECTION ===== -->
@@ -149,7 +165,7 @@
             <div class="admin-section" id="section-events">
                 <div class="admin-page-header">
                     <h2>Gestione Eventi</h2>
-                    <button class="btn btn-secondary" id="btnNewEvent">+ Nuovo Evento</button>
+                    <button class="btn btn-red" id="btnNewEvent">+ Nuovo Evento</button>
                 </div>
 
                 <!-- Event Form -->
@@ -213,7 +229,7 @@
                         </div>
 
                         <div class="form-actions" style="text-align:left; display:flex; gap:12px;">
-                            <button type="submit" class="btn btn-secondary" id="btnSaveEvent">Salva Evento</button>
+                            <button type="submit" class="btn btn-red" id="btnSaveEvent">Salva Evento</button>
                             <button type="button" class="btn btn-outline" id="btnCancelEvent">Annulla</button>
                         </div>
                     </form>
@@ -248,7 +264,7 @@
                     <h2>Prenotazioni</h2>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button class="btn btn-outline" id="btnPrintList">Stampa Lista Presenze</button>
-                        <button class="btn btn-secondary" id="btnAddBooking">+ Aggiungi Manuale</button>
+                        <button class="btn btn-red" id="btnAddBooking">+ Aggiungi Manuale</button>
                     </div>
                 </div>
 
@@ -300,7 +316,7 @@
                             <label>Ruolo</label>
                             <input type="text" id="staffRole" placeholder="Es. Cuoco, Aiuto cuoco...">
                         </div>
-                        <button type="submit" class="btn btn-secondary" style="margin-bottom:0;">Aggiungi</button>
+                        <button type="submit" class="btn btn-red" style="margin-bottom:0;">Aggiungi</button>
                     </form>
                 </div>
 
@@ -379,7 +395,7 @@
                     <textarea id="editBkNotes" rows="2"></textarea>
                 </div>
                 <div class="form-actions" style="text-align:left; display:flex; gap:12px;">
-                    <button type="submit" class="btn btn-secondary">Salva Modifiche</button>
+                    <button type="submit" class="btn btn-red">Salva Modifiche</button>
                     <button type="button" class="btn btn-outline" id="cancelEditModal">Annulla</button>
                 </div>
             </form>
@@ -445,7 +461,7 @@
                     <textarea id="addBkNotes" rows="2"></textarea>
                 </div>
                 <div class="form-actions" style="text-align:left;">
-                    <button type="submit" class="btn btn-secondary">Aggiungi Prenotazione</button>
+                    <button type="submit" class="btn btn-red">Aggiungi Prenotazione</button>
                 </div>
             </form>
         </div>

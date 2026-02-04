@@ -37,7 +37,8 @@ const loginError = document.getElementById('loginError');
 const logoutBtn = document.getElementById('logoutBtn');
 const adminEmail = document.getElementById('adminEmail');
 const adminSidebar = document.getElementById('adminSidebar');
-const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+const topbarMenuToggle = document.getElementById('topbarMenuToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 const adminEventSelect = document.getElementById('adminEventSelect');
 const toastEl = document.getElementById('toast');
 
@@ -189,9 +190,24 @@ logoutBtn.addEventListener('click', (e) => {
 });
 
 // --- Mobile sidebar ---
-mobileMenuToggle.addEventListener('click', () => {
-    adminSidebar.classList.toggle('open');
+function openSidebar() {
+    adminSidebar.classList.add('open');
+    if (sidebarOverlay) sidebarOverlay.classList.add('active');
+}
+function closeSidebar() {
+    adminSidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+}
+topbarMenuToggle.addEventListener('click', () => {
+    if (adminSidebar.classList.contains('open')) {
+        closeSidebar();
+    } else {
+        openSidebar();
+    }
 });
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', closeSidebar);
+}
 
 // --- Navigation ---
 document.querySelectorAll('.admin-nav a').forEach(link => {
@@ -205,7 +221,7 @@ document.querySelectorAll('.admin-nav a').forEach(link => {
         document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
         document.getElementById(`section-${section}`).classList.add('active');
 
-        adminSidebar.classList.remove('open');
+        closeSidebar();
     });
 });
 

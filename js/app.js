@@ -138,6 +138,22 @@ function showCurrentEvent(event) {
     eventDateHero.textContent = formatDateTime(event.date);
     bookingEventId.value = event.id;
 
+    // Info bar (QUANDO / ORA / DOVE / COSTO)
+    const eventInfoBar = document.getElementById('eventInfoBar');
+    if (eventInfoBar) {
+        eventInfoBar.classList.remove('hidden');
+        const d = event.date.toDate();
+        document.getElementById('infoDate').textContent = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+        document.getElementById('infoTime').textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        document.getElementById('infoLocation').textContent = event.location || '-';
+        const costEl = document.getElementById('infoCost');
+        if (event.costMembers != null || event.costNonMembers != null) {
+            costEl.innerHTML = `<span class="price-big">&euro;${event.costMembers || 0}</span> <small>tess.</small> / <span class="price-big">&euro;${event.costNonMembers || 0}</span> <small>non tess.</small>`;
+        } else {
+            costEl.textContent = 'Gratuito';
+        }
+    }
+
     // Locandina
     if (event.imageUrl) {
         locandinaImg.src = event.imageUrl;
@@ -162,7 +178,6 @@ function showCurrentEvent(event) {
         bookingClosed.classList.remove('hidden');
         btnPrenota.classList.add('hidden');
         btnModifica.classList.add('hidden');
-        // Hide modify section too
         document.getElementById('modifica').classList.add('hidden');
     }
 
@@ -181,7 +196,7 @@ function buildDetailsGrid(event) {
     let html = '';
 
     html += `
-        <div class="detail-card">
+        <div class="detail-card detail-card--primary">
             <div class="icon">&#128197;</div>
             <h4>Quando</h4>
             <p>${formatDateTime(event.date)}</p>
@@ -189,7 +204,7 @@ function buildDetailsGrid(event) {
 
     if (event.location) {
         html += `
-        <div class="detail-card">
+        <div class="detail-card detail-card--primary">
             <div class="icon">&#128205;</div>
             <h4>Dove</h4>
             <p>${escapeHtml(event.location)}</p>
@@ -198,7 +213,7 @@ function buildDetailsGrid(event) {
 
     if (event.costMembers != null || event.costNonMembers != null) {
         html += `
-        <div class="detail-card">
+        <div class="detail-card detail-card--primary">
             <div class="icon">&#128176;</div>
             <h4>Costo</h4>
             <div class="price-grid">
@@ -226,7 +241,7 @@ function buildDetailsGrid(event) {
     if (event.menu) {
         const menuHtml = escapeHtml(event.menu).replace(/\n/g, '<br>');
         html += `
-        <div class="detail-card" style="grid-column: 1 / -1;">
+        <div class="detail-card detail-card--primary" style="grid-column: 1 / -1;">
             <div class="icon">&#127860;</div>
             <h4>Menu</h4>
             <p>${menuHtml}</p>

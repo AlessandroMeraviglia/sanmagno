@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Shield shape -->
+  <path d="M60 8L108 28V62C108 88 88 108 60 116C32 108 12 88 12 62V28L60 8Z" fill="#D4382C"/>
+  <path d="M60 14L102 32V62C102 84.5 84.5 102.5 60 110C35.5 102.5 18 84.5 18 62V32L60 14Z" fill="#F0ECE6"/>
+  <!-- S M letters -->
+  <text x="60" y="58" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24" fill="#1C1C1E" letter-spacing="-1">S</text>
+  <text x="60" y="82" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24" fill="#D4382C" letter-spacing="-1">M</text>
+  <!-- Decorative line -->
+  <line x1="38" y1="62" x2="82" y2="62" stroke="#D4382C" stroke-width="2" stroke-linecap="round"/>
+</svg>
