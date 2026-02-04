@@ -3,7 +3,7 @@
 // ============================================
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
 import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
 import { getStorage } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js';
 
@@ -18,6 +18,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// Enable offline persistence for faster reads and offline support
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    })
+});
+
 export const auth = getAuth(app);
 export const storage = getStorage(app);

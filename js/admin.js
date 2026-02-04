@@ -1,5 +1,6 @@
 // ============================================
 // Contrada San Magno - Admin Panel Logic
+// Real-time listeners for instant updates
 // ============================================
 
 import { db, auth, storage } from './firebase-config.js';
@@ -8,6 +9,7 @@ import {
     query,
     where,
     orderBy,
+    onSnapshot,
     getDocs,
     addDoc,
     updateDoc,
@@ -98,6 +100,12 @@ let currentBookings = [];
 let currentKitchenStaff = [];
 let selectedEventId = '';
 let pendingImageFile = null;
+let initialEventSelected = false;
+
+// --- Active listener unsubscribe functions ---
+let unsubEvents = null;
+let unsubBookings = null;
+let unsubKitchen = null;
 
 // --- Helpers ---
 const months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -144,10 +152,15 @@ onAuthStateChanged(auth, (user) => {
         loginScreen.classList.add('hidden');
         adminPanel.classList.remove('hidden');
         adminEmail.textContent = user.email;
-        loadAllEvents();
+        subscribeToEvents();
     } else {
         loginScreen.classList.remove('hidden');
         adminPanel.classList.add('hidden');
+        // Clean up listeners on logout
+        if (unsubEvents) { unsubEvents(); unsubEvents = null; }
+        if (unsubBookings) { unsubBookings(); unsubBookings = null; }
+        if (unsubKitchen) { unsubKitchen(); unsubKitchen = null; }
+        initialEventSelected = false;
     }
 });
 
@@ -196,12 +209,17 @@ document.querySelectorAll('.admin-nav a').forEach(link => {
     });
 });
 
-// --- Load All Events ---
-async function loadAllEvents() {
-    try {
-        const q = query(collection(db, 'events'), orderBy('date', 'desc'));
-        const snapshot = await getDocs(q);
+// ============================================
+// REAL-TIME LISTENERS
+// ============================================
 
+// --- Subscribe to Events (real-time) ---
+function subscribeToEvents() {
+    if (unsubEvents) unsubEvents();
+
+    const q = query(collection(db, 'events'), orderBy('date', 'desc'));
+
+    unsubEvents = onSnapshot(q, (snapshot) => {
         allEvents = [];
         snapshot.forEach(d => {
             allEvents.push({ id: d.id, ...d.data() });
@@ -210,58 +228,107 @@ async function loadAllEvents() {
         renderEventsTable();
         populateEventSelector();
 
-        const now = new Date();
-        const upcoming = allEvents.find(e => e.date.toDate() >= now);
-        if (upcoming) {
-            adminEventSelect.value = upcoming.id;
-            selectedEventId = upcoming.id;
-            loadEventData(upcoming.id);
-        } else if (allEvents.length > 0) {
-            adminEventSelect.value = allEvents[0].id;
-            selectedEventId = allEvents[0].id;
-            loadEventData(allEvents[0].id);
+        // Auto-select first upcoming event only on initial load
+        if (!initialEventSelected && allEvents.length > 0) {
+            initialEventSelected = true;
+            const now = new Date();
+            const upcoming = allEvents.find(e => e.date.toDate() >= now);
+            const target = upcoming || allEvents[0];
+            adminEventSelect.value = target.id;
+            selectedEventId = target.id;
+            subscribeToEventData(target.id);
         }
-    } catch (error) {
-        console.error('Error loading events:', error);
+    }, (error) => {
+        console.error('Error listening to events:', error);
         showToast('Errore nel caricamento degli eventi', 'error');
-    }
+    });
 }
 
+// --- Subscribe to Bookings + Kitchen for an event ---
+function subscribeToEventData(eventId) {
+    subscribeToBookings(eventId);
+    subscribeToKitchen(eventId);
+}
+
+function subscribeToBookings(eventId) {
+    // Unsubscribe from previous listener
+    if (unsubBookings) { unsubBookings(); unsubBookings = null; }
+
+    if (!eventId) {
+        currentBookings = [];
+        noBookings.classList.remove('hidden');
+        bookingsTableWrapper.classList.add('hidden');
+        updateStats();
+        return;
+    }
+
+    const q = query(
+        collection(db, 'bookings'),
+        where('eventId', '==', eventId),
+        orderBy('createdAt', 'desc')
+    );
+
+    unsubBookings = onSnapshot(q, (snapshot) => {
+        currentBookings = [];
+        snapshot.forEach(d => {
+            currentBookings.push({ id: d.id, ...d.data() });
+        });
+        renderBookingsTable();
+        updateStats();
+    }, (error) => {
+        console.error('Error listening to bookings:', error);
+        showToast('Errore nel caricamento prenotazioni', 'error');
+    });
+}
+
+function subscribeToKitchen(eventId) {
+    // Unsubscribe from previous listener
+    if (unsubKitchen) { unsubKitchen(); unsubKitchen = null; }
+
+    if (!eventId) {
+        currentKitchenStaff = [];
+        kitchenList.innerHTML = '<div class="empty-state"><div class="empty-icon">&#127859;</div><p>Nessuno staff cucina</p></div>';
+        kitchenCount.textContent = '';
+        updateStats();
+        return;
+    }
+
+    const q = query(
+        collection(db, 'kitchenStaff'),
+        where('eventId', '==', eventId)
+    );
+
+    unsubKitchen = onSnapshot(q, (snapshot) => {
+        currentKitchenStaff = [];
+        snapshot.forEach(d => {
+            currentKitchenStaff.push({ id: d.id, ...d.data() });
+        });
+        renderKitchenStaff();
+        updateStats();
+    }, (error) => {
+        console.error('Error listening to kitchen staff:', error);
+    });
+}
+
+// --- Event Selector ---
 function populateEventSelector() {
+    const currentValue = adminEventSelect.value;
     let html = '<option value="">-- Seleziona evento --</option>';
     allEvents.forEach(e => {
         const dateStr = formatDate(e.date);
         html += `<option value="${e.id}">${escapeHtml(e.title)} - ${dateStr}</option>`;
     });
     adminEventSelect.innerHTML = html;
+    // Preserve selection
+    if (currentValue && allEvents.some(e => e.id === currentValue)) {
+        adminEventSelect.value = currentValue;
+    }
 }
 
-// --- Event Selector Change ---
 adminEventSelect.addEventListener('change', (e) => {
     selectedEventId = e.target.value;
-    if (selectedEventId) {
-        loadEventData(selectedEventId);
-    } else {
-        clearEventData();
-    }
+    subscribeToEventData(selectedEventId);
 });
-
-async function loadEventData(eventId) {
-    await Promise.all([
-        loadBookings(eventId),
-        loadKitchenStaff(eventId)
-    ]);
-    updateStats();
-}
-
-function clearEventData() {
-    currentBookings = [];
-    currentKitchenStaff = [];
-    noBookings.classList.remove('hidden');
-    bookingsTableWrapper.classList.add('hidden');
-    kitchenList.innerHTML = '<div class="empty-state"><div class="empty-icon">&#127859;</div><p>Nessuno staff cucina</p></div>';
-    resetStats();
-}
 
 // --- Events Table ---
 function renderEventsTable() {
@@ -285,7 +352,7 @@ function renderEventsTable() {
         } else if (isBookingOpen) {
             statusBadge = '<span class="badge badge-active">Prenotazioni aperte</span>';
         } else {
-            statusBadge = '<span class="badge" style="background:#FFF3E0;color:#E65100;">Prenotazioni chiuse</span>';
+            statusBadge = '<span class="badge" style="background:rgba(229,161,0,0.15);color:#B37A00;">Prenotazioni chiuse</span>';
         }
 
         html += `
@@ -389,7 +456,6 @@ eventForm.addEventListener('submit', async (e) => {
         let eventId = id;
 
         if (id) {
-            // Upload image if pending
             const imageUrl = await uploadEventImage(id);
             if (imageUrl !== undefined && imageUrl !== null) {
                 eventData.imageUrl = imageUrl;
@@ -402,7 +468,6 @@ eventForm.addEventListener('submit', async (e) => {
             eventData.createdAt = Timestamp.now();
             const docRef = await addDoc(collection(db, 'events'), eventData);
             eventId = docRef.id;
-            // Upload image for new event
             const imageUrl = await uploadEventImage(eventId);
             if (imageUrl) {
                 await updateDoc(doc(db, 'events', eventId), { imageUrl });
@@ -411,7 +476,7 @@ eventForm.addEventListener('submit', async (e) => {
         }
 
         eventFormWrapper.classList.add('hidden');
-        await loadAllEvents();
+        // No need to reload - onSnapshot handles it
     } catch (error) {
         console.error('Error saving event:', error);
         showToast('Errore nel salvataggio dell\'evento', 'error');
@@ -439,28 +504,7 @@ function resetEventForm() {
     pendingImageFile = null;
 }
 
-// --- Bookings ---
-async function loadBookings(eventId) {
-    try {
-        const q = query(
-            collection(db, 'bookings'),
-            where('eventId', '==', eventId),
-            orderBy('createdAt', 'desc')
-        );
-        const snapshot = await getDocs(q);
-
-        currentBookings = [];
-        snapshot.forEach(d => {
-            currentBookings.push({ id: d.id, ...d.data() });
-        });
-
-        renderBookingsTable();
-    } catch (error) {
-        console.error('Error loading bookings:', error);
-        showToast('Errore nel caricamento prenotazioni', 'error');
-    }
-}
-
+// --- Bookings Table ---
 function renderBookingsTable() {
     if (currentBookings.length === 0) {
         noBookings.classList.remove('hidden');
@@ -545,8 +589,7 @@ editBookingForm.addEventListener('submit', async (e) => {
         await updateDoc(doc(db, 'bookings', id), updatedData);
         editBookingModal.classList.remove('active');
         showToast('Prenotazione aggiornata!');
-        await loadBookings(selectedEventId);
-        updateStats();
+        // No need to reload - onSnapshot handles it
     } catch (error) {
         console.error('Error updating booking:', error);
         showToast('Errore nell\'aggiornamento', 'error');
@@ -603,8 +646,7 @@ addBookingForm.addEventListener('submit', async (e) => {
         await addDoc(collection(db, 'bookings'), bookingData);
         addBookingModal.classList.remove('active');
         showToast('Prenotazione aggiunta!');
-        await loadBookings(selectedEventId);
-        updateStats();
+        // No need to reload - onSnapshot handles it
     } catch (error) {
         console.error('Error adding booking:', error);
         showToast('Errore nell\'aggiunta', 'error');
@@ -618,8 +660,7 @@ async function deleteBooking(bookingId) {
     try {
         await deleteDoc(doc(db, 'bookings', bookingId));
         showToast('Prenotazione eliminata');
-        await loadBookings(selectedEventId);
-        updateStats();
+        // No need to reload - onSnapshot handles it
     } catch (error) {
         console.error('Error deleting booking:', error);
         showToast('Errore nell\'eliminazione', 'error');
@@ -648,8 +689,14 @@ async function deleteEvent(eventId) {
 
         await Promise.all(deletePromises);
         showToast('Evento eliminato');
-        await loadAllEvents();
-        clearEventData();
+
+        // If the deleted event was selected, clear selection
+        if (selectedEventId === eventId) {
+            selectedEventId = '';
+            adminEventSelect.value = '';
+            subscribeToEventData('');
+        }
+        // No need to reload events - onSnapshot handles it
     } catch (error) {
         console.error('Error deleting event:', error);
         showToast('Errore nell\'eliminazione dell\'evento', 'error');
@@ -695,25 +742,6 @@ function editEvent(eventId) {
 }
 
 // --- Kitchen Staff ---
-async function loadKitchenStaff(eventId) {
-    try {
-        const q = query(
-            collection(db, 'kitchenStaff'),
-            where('eventId', '==', eventId)
-        );
-        const snapshot = await getDocs(q);
-
-        currentKitchenStaff = [];
-        snapshot.forEach(d => {
-            currentKitchenStaff.push({ id: d.id, ...d.data() });
-        });
-
-        renderKitchenStaff();
-    } catch (error) {
-        console.error('Error loading kitchen staff:', error);
-    }
-}
-
 function renderKitchenStaff() {
     kitchenCount.textContent = `${currentKitchenStaff.length} person${currentKitchenStaff.length !== 1 ? 'e' : 'a'}`;
 
@@ -763,8 +791,7 @@ kitchenForm.addEventListener('submit', async (e) => {
 
         kitchenForm.reset();
         showToast('Staff aggiunto!');
-        await loadKitchenStaff(selectedEventId);
-        updateStats();
+        // No need to reload - onSnapshot handles it
     } catch (error) {
         console.error('Error adding staff:', error);
         showToast('Errore nell\'aggiunta dello staff', 'error');
@@ -777,8 +804,7 @@ async function deleteStaff(staffId) {
     try {
         await deleteDoc(doc(db, 'kitchenStaff', staffId));
         showToast('Staff rimosso');
-        await loadKitchenStaff(selectedEventId);
-        updateStats();
+        // No need to reload - onSnapshot handles it
     } catch (error) {
         console.error('Error deleting staff:', error);
         showToast('Errore nella rimozione', 'error');
@@ -818,18 +844,6 @@ function updateStats() {
     }
 }
 
-function resetStats() {
-    statTotalPeople.textContent = '0';
-    statTotalBookings.textContent = '0';
-    statEating.textContent = '0';
-    statNotEating.textContent = '0';
-    statChildren.textContent = '0';
-    statKitchen.textContent = '0';
-    statGrandTotal.textContent = '0';
-    statSeats.textContent = '0';
-    allergySummary.style.display = 'none';
-}
-
 // --- Print Attendance List ---
 btnPrintList.addEventListener('click', () => {
     if (!selectedEventId) {
@@ -865,7 +879,6 @@ btnPrintList.addEventListener('click', () => {
         </tr>`;
     });
 
-    // Kitchen staff rows
     let kitchenRows = '';
     currentKitchenStaff.forEach(s => {
         kitchenRows += `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '-')}</td></tr>`;
@@ -891,7 +904,7 @@ btnPrintList.addEventListener('click', () => {
         .summary-item .label { font-size: 10px; text-transform: uppercase; color: #666; }
         .kitchen-section { margin-top: 20px; }
         .kitchen-section h3 { font-size: 14px; margin-bottom: 8px; }
-        .print-btn { position: fixed; top: 10px; right: 10px; background: #722F37; color: #fff; border: none; padding: 10px 24px; font-size: 14px; cursor: pointer; border-radius: 6px; }
+        .print-btn { position: fixed; top: 10px; right: 10px; background: #1C1C1E; color: #fff; border: none; padding: 10px 24px; font-size: 14px; cursor: pointer; border-radius: 50px; }
         @media print { .print-btn { display: none; } }
     </style>
 </head>
@@ -909,7 +922,7 @@ btnPrintList.addEventListener('click', () => {
         <div class="summary-item"><div class="num">${totalEating}</div><div class="label">Mangiano</div></div>
         <div class="summary-item"><div class="num">${totalNotEating}</div><div class="label">Non Mangiano</div></div>
         <div class="summary-item"><div class="num">${currentKitchenStaff.length}</div><div class="label">Staff Cucina</div></div>
-        <div class="summary-item"><div class="num" style="color:#722F37;">${totalPeople + currentKitchenStaff.length}</div><div class="label"><strong>Totale Presenti</strong></div></div>
+        <div class="summary-item"><div class="num" style="color:#D4382C;">${totalPeople + currentKitchenStaff.length}</div><div class="label"><strong>Totale Presenti</strong></div></div>
     </div>
 
     <table>
